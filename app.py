@@ -17,45 +17,32 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         df['Date'] = pd.to_datetime(df['Date'])
         
-        # Remove ALL transfers to Daniyal and Talha Ahmed completely
-        names_to_exclude = ['Daniyal', 'Talha Ahmed']
-        transfer_pattern = '|'.join([f'to {name}' for name in names_to_exclude])
+        st.success(f"✅ Successfully loaded {len(df)} transactions")
         
-        # Count transactions before filtering
-        original_count = len(df)
-        
-        # Remove these transactions completely
-        df_clean = df[~df['Description'].str.contains(transfer_pattern, case=False, na=False)].copy()
-        
-        removed_count = original_count - len(df_clean)
-        
-        st.success(f"✅ Successfully loaded {len(df_clean)} real transactions")
-        st.info(f"🗑️ Removed {removed_count} transfers to Daniyal/Talha Ahmed from ALL calculations")
-        
-        # Display summary metrics (using CLEAN data)
+        # Display summary metrics
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Real Transactions", len(df_clean))
+            st.metric("Total Transactions", len(df))
         
         with col2:
-            real_income = df_clean[df_clean['Amount'] > 0]['Amount'].sum()
-            st.metric("Real Income", f"Rs. {real_income:,.2f}")
+            total_income = df[df['Amount'] > 0]['Amount'].sum()
+            st.metric("Total Income", f"Rs. {total_income:,.2f}")
         
         with col3:
-            real_expenses = abs(df_clean[df_clean['Amount'] < 0]['Amount'].sum())
-            st.metric("Real Expenses", f"Rs. {real_expenses:,.2f}")
+            total_expenses = abs(df[df['Amount'] < 0]['Amount'].sum())
+            st.metric("Total Expenses", f"Rs. {total_expenses:,.2f}")
         
         with col4:
-            real_net_flow = df_clean['Amount'].sum()
-            st.metric("Real Net Flow", f"Rs. {real_net_flow:,.2f}")
+            net_flow = df['Amount'].sum()
+            st.metric("Net Flow", f"Rs. {net_flow:,.2f}")
         
-        # Balance over time chart - USING ACTUAL BALANCES (from clean data)
+        # Balance over time chart - USING ACTUAL BALANCES
         st.subheader("💰 Balance Over Time")
-        df_sorted = df_clean.sort_values('Date')
+        df_sorted = df.sort_values('Date')
         
         # Check if Available Balance column exists
-        if 'Available Balance' in df_clean.columns:
+        if 'Available Balance' in df.columns:
             # Use the actual Available Balance from your bank statement
             fig = px.line(df_sorted, x='Date', y='Available Balance', 
                          title='Actual Account Balance Over Time (From Bank Records)')
@@ -72,91 +59,15 @@ if uploaded_file is not None:
                          title='Calculated Balance Over Time')
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
-
-        # Yearly Upwork Income Chart (Only real Upwork income)
-        st.subheader("💼 Yearly Upwork Income")
         
-        # Create year column
-        df_clean['Year'] = df_clean['Date'].dt.strftime('%Y')
-        
-        # Calculate yearly Upwork income (from clean data - already excludes transfers)
-        upwork_income = df_clean[
-            (df_clean['Amount'] > 0) & 
-            (df_clean['Description'].str.contains('upwork', case=False, na=False))
-        ].groupby('Year').agg({
-            'Amount': 'sum',
-            'Description': 'count'
-        }).reset_index()
-        
-        upwork_income = upwork_income.rename(columns={
-            'Amount': 'Upwork_Income',
-            'Description': 'Transaction_Count'
-        })
-        
-        if not upwork_income.empty:
-            # Create bar chart for Upwork income
-            fig_upwork = px.bar(upwork_income, 
-                              x='Year', 
-                              y='Upwork_Income',
-                              title='Yearly Upwork Income (Real Earnings)',
-                              color='Upwork_Income',
-                              color_continuous_scale='greens',
-                              text='Upwork_Income')
-            
-            fig_upwork.update_layout(
-                xaxis_title="Year", 
-                yaxis_title="Upwork Income (Rs.)",
-                yaxis={
-                    'tickformat': ',.0f',
-                    'dtick': 100000
-                }
-            )
-            
-            # Format the text on bars
-            fig_upwork.update_traces(texttemplate='Rs. %{y:,.0f}', textposition='outside')
-            
-            st.plotly_chart(fig_upwork, use_container_width=True)
-            
-            # Show Upwork income summary
-            st.subheader("📊 Upwork Income Summary")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                total_upwork = upwork_income['Upwork_Income'].sum()
-                st.metric("Total Upwork Income", f"Rs. {total_upwork:,.2f}")
-            
-            with col2:
-                avg_per_year = upwork_income['Upwork_Income'].mean()
-                st.metric("Average per Year", f"Rs. {avg_per_year:,.2f}")
-            
-            with col3:
-                max_year_income = upwork_income['Upwork_Income'].max()
-                max_year = upwork_income.loc[upwork_income['Upwork_Income'].idxmax(), 'Year']
-                st.metric("Best Year", f"Rs. {max_year_income:,.2f}", f"({max_year})")
-            
-            with col4:
-                total_payments = upwork_income['Transaction_Count'].sum()
-                st.metric("Total Payments", total_payments)
-            
-            # Upwork breakdown table
-            st.subheader("📋 Upwork Income by Year")
-            upwork_table = upwork_income[['Year', 'Upwork_Income', 'Transaction_Count']].copy()
-            upwork_table['Upwork_Income'] = upwork_table['Upwork_Income'].round(2)
-            upwork_table['Average per Payment'] = (upwork_table['Upwork_Income'] / upwork_table['Transaction_Count']).round(2)
-            upwork_table = upwork_table.rename(columns={
-                'Year': 'Year',
-                'Upwork_Income': 'Upwork Income (Rs.)',
-                'Transaction_Count': 'Number of Payments'
-            })
-            st.dataframe(upwork_table, use_container_width=True)
-        else:
-            st.info("No Upwork income data found for the selected period")
-        
-        # Yearly Expenditure Bar Graph (using CLEAN data)
+        # Yearly Expenditure Bar Graph
         st.subheader("📊 Yearly Expenditure Summary")
         
+        # Create year column
+        df['Year'] = df['Date'].dt.strftime('%Y')
+        
         # Calculate yearly expenses (only negative amounts)
-        yearly_expenses = df_clean[df_clean['Amount'] < 0].groupby('Year').agg({
+        yearly_expenses = df[df['Amount'] < 0].groupby('Year').agg({
             'Amount': 'sum',
             'Description': 'count'
         }).reset_index()
@@ -170,7 +81,7 @@ if uploaded_file is not None:
             fig_yearly = px.bar(yearly_expenses, 
                               x='Year', 
                               y='Expenditure',
-                              title='Yearly Expenditure Summary - Real Expenses (Rs.)',
+                              title='Yearly Expenditure Summary (Rs.)',
                               color='Expenditure',
                               color_continuous_scale='blues',
                               hover_data=['Transaction_Count'],
@@ -226,14 +137,14 @@ if uploaded_file is not None:
         else:
             st.info("No yearly expenditure data found for the selected period")
         
-        # Monthly Expenditure Bar Graph (using CLEAN data)
+        # Monthly Expenditure Bar Graph
         st.subheader("📊 Monthly Expenditure")
         
         # Create month-year column
-        df_clean['Month_Year'] = df_clean['Date'].dt.strftime('%Y-%m')
+        df['Month_Year'] = df['Date'].dt.strftime('%Y-%m')
         
         # Calculate monthly expenses (only negative amounts)
-        monthly_expenses = df_clean[df_clean['Amount'] < 0].groupby('Month_Year').agg({
+        monthly_expenses = df[df['Amount'] < 0].groupby('Month_Year').agg({
             'Amount': 'sum'
         }).reset_index()
         
@@ -245,7 +156,7 @@ if uploaded_file is not None:
             fig_expenses = px.bar(monthly_expenses, 
                                 x='Month_Year', 
                                 y='Expenditure',
-                                title='Monthly Expenditure - Real Expenses (Rs.)',
+                                title='Monthly Expenditure (Rs.)',
                                 color='Expenditure',
                                 color_continuous_scale='reds')
             
@@ -280,11 +191,11 @@ if uploaded_file is not None:
         else:
             st.info("No expenditure data found for the selected period")
         
-        # Top 20 Payees Bar Chart (using CLEAN data)
+        # Top 20 Payees Bar Chart
         st.subheader("👥 Top 20 Payees")
         
         # Get only expense transactions
-        expense_df = df_clean[df_clean['Amount'] < 0].copy()
+        expense_df = df[df['Amount'] < 0].copy()
         
         if not expense_df.empty:
             # Clean description to extract payee names
@@ -327,7 +238,7 @@ if uploaded_file is not None:
                 fig_payees = px.bar(top_20_payees, 
                                   x='Payee', 
                                   y='Amount',
-                                  title='Top 20 Payees - Real Payments (Rs.)',
+                                  title='Top 20 Payees - Total Amount Paid (Rs.)',
                                   color='Amount',
                                   color_continuous_scale='purples',
                                   hover_data=['Transaction_Count'])
@@ -378,13 +289,13 @@ if uploaded_file is not None:
         else:
             st.info("No expense transactions found for payee analysis")
         
-        # Monthly summary (income vs expenses) - using CLEAN data
+        # Monthly summary (income vs expenses)
         st.subheader("📈 Monthly Income vs Expenses")
         
-        monthly_income = df_clean[df_clean['Amount'] > 0].groupby('Month_Year')['Amount'].sum().reset_index()
+        monthly_income = df[df['Amount'] > 0].groupby('Month_Year')['Amount'].sum().reset_index()
         monthly_income.columns = ['Month_Year', 'Income']
         
-        monthly_expenses_comparison = df_clean[df_clean['Amount'] < 0].groupby('Month_Year')['Amount'].sum().reset_index()
+        monthly_expenses_comparison = df[df['Amount'] < 0].groupby('Month_Year')['Amount'].sum().reset_index()
         monthly_expenses_comparison['Expenses'] = abs(monthly_expenses_comparison['Amount'])
         monthly_expenses_comparison = monthly_expenses_comparison[['Month_Year', 'Expenses']]
         
@@ -416,7 +327,7 @@ if uploaded_file is not None:
         
         # Transaction history
         st.subheader("📋 Recent Transactions")
-        st.dataframe(df_clean.sort_values('Date', ascending=False).head(100))
+        st.dataframe(df.sort_values('Date', ascending=False).head(100))
         
     except Exception as e:
         st.error(f"Error processing file: {e}")
