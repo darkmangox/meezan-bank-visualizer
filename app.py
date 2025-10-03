@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Meezan Bank Visualizer", layout="wide")
 st.title("🏦 Meezan Bank Statement Visualizer")
@@ -35,19 +36,28 @@ if uploaded_file is not None:
             net_flow = df['Amount'].sum()
             st.metric("Net Flow", f"₹{net_flow:,.2f}")
         
-       # Balance over time chart - USING ACTUAL BALANCES
-    st.subheader("💰 Balance Over Time")
-    df_sorted = df.sort_values('Date')
-
-# Use the actual Available Balance from your bank statement
-    fig = px.line(df_sorted, x='Date', y='Available Balance', 
-             title='Actual Account Balance Over Time (From Bank Records)')
-    fig.update_layout(yaxis_title="Balance (₹)")
-    st.plotly_chart(fig, use_container_width=True)
-
-# Show current balance
-current_balance = df_sorted['Available Balance'].iloc[-1]
-st.metric("Current Balance", f"₹{current_balance:,.2f}")
+        # Balance over time chart - USING ACTUAL BALANCES
+        st.subheader("💰 Balance Over Time")
+        df_sorted = df.sort_values('Date')
+        
+        # Check if Available Balance column exists
+        if 'Available Balance' in df.columns:
+            # Use the actual Available Balance from your bank statement
+            fig = px.line(df_sorted, x='Date', y='Available Balance', 
+                         title='Actual Account Balance Over Time (From Bank Records)')
+            fig.update_layout(yaxis_title="Balance (₹)")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show current balance
+            current_balance = df_sorted['Available Balance'].iloc[-1]
+            st.metric("Current Balance", f"₹{current_balance:,.2f}")
+        else:
+            # Fallback to calculated balance
+            df_sorted['Running Balance'] = df_sorted['Amount'].cumsum()
+            fig = px.line(df_sorted, x='Date', y='Running Balance', 
+                         title='Calculated Balance Over Time')
+            st.plotly_chart(fig, use_container_width=True)
+            st.info("Using calculated balance (no Available Balance column found)")
         
         # Monthly summary
         st.subheader("📊 Monthly Summary")
@@ -58,13 +68,23 @@ st.metric("Current Balance", f"₹{current_balance:,.2f}")
         monthly_data.columns = ['Net Amount', 'Transaction Count']
         st.dataframe(monthly_data, use_container_width=True)
         
+        # Income vs Expenses pie chart
+        st.subheader("🍕 Income vs Expenses")
+        income = df[df['Amount'] > 0]['Amount'].sum()
+        expenses = abs(df[df['Amount'] < 0]['Amount'].sum())
+        
+        if income + expenses > 0:  # Only show if we have data
+            fig2 = px.pie(values=[income, expenses], 
+                         names=['Income', 'Expenses'],
+                         title='Income vs Expenses Distribution')
+            st.plotly_chart(fig2, use_container_width=True)
+        
         # Transaction history
         st.subheader("📋 Recent Transactions")
         st.dataframe(df.sort_values('Date', ascending=False).head(100))
         
     except Exception as e:
         st.error(f"Error processing file: {e}")
-        st.info("Make sure your CSV has columns: Date, Description, Amount")
+        st.info("Make sure your CSV has columns: Date, Description, Amount, Available Balance")
 else:
     st.info("👆 Please upload your Meezan Bank CSV file to begin")
-
