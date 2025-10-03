@@ -35,14 +35,19 @@ if uploaded_file is not None:
             net_flow = df['Amount'].sum()
             st.metric("Net Flow", f"₹{net_flow:,.2f}")
         
-        # Balance over time chart
-        st.subheader("💰 Balance Over Time")
-        df_sorted = df.sort_values('Date')
-        df_sorted['Running Balance'] = df_sorted['Amount'].cumsum()
-        
-        fig = px.line(df_sorted, x='Date', y='Running Balance', 
-                     title='Account Balance Over Time')
-        st.plotly_chart(fig, use_container_width=True)
+       # Balance over time chart - USING ACTUAL BALANCES
+    st.subheader("💰 Balance Over Time")
+    df_sorted = df.sort_values('Date')
+
+# Use the actual Available Balance from your bank statement
+    fig = px.line(df_sorted, x='Date', y='Available Balance', 
+             title='Actual Account Balance Over Time (From Bank Records)')
+    fig.update_layout(yaxis_title="Balance (₹)")
+    st.plotly_chart(fig, use_container_width=True)
+
+# Show current balance
+current_balance = df_sorted['Available Balance'].iloc[-1]
+st.metric("Current Balance", f"₹{current_balance:,.2f}")
         
         # Monthly summary
         st.subheader("📊 Monthly Summary")
@@ -62,3 +67,4 @@ if uploaded_file is not None:
         st.info("Make sure your CSV has columns: Date, Description, Amount")
 else:
     st.info("👆 Please upload your Meezan Bank CSV file to begin")
+
