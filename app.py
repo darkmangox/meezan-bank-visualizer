@@ -61,57 +61,57 @@ if uploaded_file is not None:
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
         
-        # Monthly Expenses Summary with Trend Lines
-        st.subheader("📈 Monthly Expenses Summary with Trends")
+        # Weekly Expenses Summary with Trend Lines
+        st.subheader("📈 Weekly Expenses Summary with Trends")
         
-        # Create month-year column
-        df['Month_Year'] = df['Date'].dt.strftime('%Y-%m')
+        # Create week-year column
+        df['Week'] = df['Date'].dt.strftime('%Y-W%U')
         df['Year'] = df['Date'].dt.year
         
-        # Calculate monthly expenses (only negative amounts)
-        monthly_expenses = df[df['Amount'] < 0].groupby('Month_Year').agg({
+        # Calculate weekly expenses (only negative amounts)
+        weekly_expenses = df[df['Amount'] < 0].groupby('Week').agg({
             'Amount': 'sum',
             'Description': 'count'
         }).reset_index()
         
         # Convert to positive values for the chart
-        monthly_expenses['Expenditure'] = abs(monthly_expenses['Amount'])
-        monthly_expenses = monthly_expenses.rename(columns={'Description': 'Transaction_Count'})
+        weekly_expenses['Expenditure'] = abs(weekly_expenses['Amount'])
+        weekly_expenses = weekly_expenses.rename(columns={'Description': 'Transaction_Count'})
         
-        # Extract year from month for coloring and analysis
-        monthly_expenses['Year'] = monthly_expenses['Month_Year'].str.split('-').str[0]
-        monthly_expenses = monthly_expenses.sort_values('Month_Year')
+        # Extract year from week for coloring and analysis
+        weekly_expenses['Year'] = weekly_expenses['Week'].str.split('-W').str[0]
+        weekly_expenses = weekly_expenses.sort_values('Week')
         
-        if not monthly_expenses.empty:
+        if not weekly_expenses.empty:
             # Create line chart with different colors for each year
-            fig_monthly = px.line(monthly_expenses, 
-                                x='Month_Year', 
-                                y='Expenditure',
-                                title='Monthly Expenses Summary with Trends (Rs.)',
-                                color='Year',
-                                markers=True,
-                                line_shape='linear')
+            fig_weekly = px.line(weekly_expenses, 
+                               x='Week', 
+                               y='Expenditure',
+                               title='Weekly Expenses Summary with Trends (Rs.)',
+                               color='Year',
+                               markers=True,
+                               line_shape='linear')
             
             # Add solid white trend line that connects through the dots
-            monthly_expenses_sorted = monthly_expenses.sort_values('Month_Year')
+            weekly_expenses_sorted = weekly_expenses.sort_values('Week')
             
-            fig_monthly.add_trace(go.Scatter(
-                x=monthly_expenses_sorted['Month_Year'],
-                y=monthly_expenses_sorted['Expenditure'],
+            fig_weekly.add_trace(go.Scatter(
+                x=weekly_expenses_sorted['Week'],
+                y=weekly_expenses_sorted['Expenditure'],
                 mode='lines+markers',
                 name='Overall Trend',
                 line=dict(color='white', width=4),
-                marker=dict(color='white', size=6, symbol='circle'),
-                hovertemplate='<b>Trend Line</b><br>Month: %{x}<br>Expenditure: Rs. %{y:,.0f}<extra></extra>'
+                marker=dict(color='white', size=5, symbol='circle'),
+                hovertemplate='<b>Trend Line</b><br>Week: %{x}<br>Expenditure: Rs. %{y:,.0f}<extra></extra>'
             ))
             
-            fig_monthly.update_layout(
-                xaxis_title="Month",
+            fig_weekly.update_layout(
+                xaxis_title="Week (Year-WeekNumber)",
                 yaxis_title="Total Expenditure (Rs.)",
                 xaxis={'tickangle': 45},
                 yaxis={
                     'tickformat': ',.0f',
-                    'dtick': 100000  # 100k increments
+                    'dtick': 50000  # 50k increments for weekly data
                 },
                 showlegend=True,
                 height=500,
@@ -120,60 +120,59 @@ if uploaded_file is not None:
             )
             
             # Add value annotations on each point
-            fig_monthly.update_traces(hovertemplate='<b>Month:</b> %{x}<br><b>Expenditure:</b> Rs. %{y:,.0f}<br><b>Year:</b> %{fullData.name}<extra></extra>')
+            fig_weekly.update_traces(hovertemplate='<b>Week:</b> %{x}<br><b>Expenditure:</b> Rs. %{y:,.0f}<br><b>Year:</b> %{fullData.name}<extra></extra>')
             
-            st.plotly_chart(fig_monthly, use_container_width=True)
+            st.plotly_chart(fig_weekly, use_container_width=True)
             
-            # Monthly expenses summary
-            st.subheader("📋 Monthly Expenses Summary")
-            monthly_table = monthly_expenses[['Month_Year', 'Expenditure', 'Transaction_Count', 'Year']].copy()
-            monthly_table['Expenditure'] = monthly_table['Expenditure'].round(2)
-            monthly_table['Average per Transaction'] = (monthly_table['Expenditure'] / monthly_table['Transaction_Count']).round(2)
-            monthly_table = monthly_table.rename(columns={
-                'Month_Year': 'Month',
+            # Weekly expenses summary
+            st.subheader("📋 Weekly Expenses Summary")
+            weekly_table = weekly_expenses[['Week', 'Expenditure', 'Transaction_Count', 'Year']].copy()
+            weekly_table['Expenditure'] = weekly_table['Expenditure'].round(2)
+            weekly_table['Average per Transaction'] = (weekly_table['Expenditure'] / weekly_table['Transaction_Count']).round(2)
+            weekly_table = weekly_table.rename(columns={
+                'Week': 'Week',
                 'Expenditure': 'Total Expenditure (Rs.)',
                 'Transaction_Count': 'Number of Transactions',
                 'Year': 'Year'
             })
-            st.dataframe(monthly_table, use_container_width=True)
+            st.dataframe(weekly_table, use_container_width=True)
             
-            # Monthly statistics
+            # Weekly statistics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                current_month_expense = monthly_expenses['Expenditure'].iloc[-1]
-                st.metric("Current Month", f"Rs. {current_month_expense:,.2f}")
+                current_week_expense = weekly_expenses['Expenditure'].iloc[-1]
+                st.metric("Current Week", f"Rs. {current_week_expense:,.2f}")
             
             with col2:
-                avg_monthly_expense = monthly_expenses['Expenditure'].mean()
-                st.metric("Average per Month", f"Rs. {avg_monthly_expense:,.2f}")
+                avg_weekly_expense = weekly_expenses['Expenditure'].mean()
+                st.metric("Average per Week", f"Rs. {avg_weekly_expense:,.2f}")
             
             with col3:
-                highest_month_expense = monthly_expenses['Expenditure'].max()
-                highest_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmax(), 'Month_Year']
-                st.metric("Highest Month", f"Rs. {highest_month_expense:,.2f}", f"({highest_month})")
+                highest_week_expense = weekly_expenses['Expenditure'].max()
+                highest_week = weekly_expenses.loc[weekly_expenses['Expenditure'].idxmax(), 'Week']
+                st.metric("Highest Week", f"Rs. {highest_week_expense:,.2f}", f"({highest_week})")
             
             with col4:
-                lowest_month_expense = monthly_expenses['Expenditure'].min()
-                lowest_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmin(), 'Month_Year']
-                st.metric("Lowest Month", f"Rs. {lowest_month_expense:,.2f}", f"({lowest_month})")
+                lowest_week_expense = weekly_expenses['Expenditure'].min()
+                lowest_week = weekly_expenses.loc[weekly_expenses['Expenditure'].idxmin(), 'Week']
+                st.metric("Lowest Week", f"Rs. {lowest_week_expense:,.2f}", f"({lowest_week})")
                 
-            # Year-over-Year comparison for same months
-            st.subheader("📊 Year-over-Year Month Comparison")
+            # Year-over-Year comparison for same weeks
+            st.subheader("📊 Year-over-Year Week Comparison")
             
-            # Extract month name for better comparison
-            monthly_expenses['Month_Name'] = pd.to_datetime(monthly_expenses['Month_Year'] + '-01').dt.strftime('%b')
+            # Extract week number for comparison
+            weekly_expenses['Week_Num'] = weekly_expenses['Week'].str.split('-W').str[1]
             
             # Pivot table for year-over-year comparison
-            yoy_comparison = monthly_expenses.pivot_table(
-                index='Month_Name', 
+            yoy_comparison = weekly_expenses.pivot_table(
+                index='Week_Num', 
                 columns='Year', 
                 values='Expenditure', 
                 aggfunc='mean'
             ).fillna(0)
             
-            # Order months properly
-            month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            yoy_comparison = yoy_comparison.reindex(month_order, fill_value=0)
+            # Sort by week number
+            yoy_comparison = yoy_comparison.loc[sorted(yoy_comparison.index, key=lambda x: int(x))]
             
             if not yoy_comparison.empty and len(yoy_comparison.columns) > 1:
                 fig_yoy = go.Figure()
@@ -185,12 +184,12 @@ if uploaded_file is not None:
                         y=yoy_comparison[year],
                         mode='lines+markers',
                         name=str(year),
-                        hovertemplate=f'<b>Month:</b> %{{x}}<br><b>{year} Avg Expenditure:</b> Rs. %{{y:,.0f}}<extra></extra>'
+                        hovertemplate=f'<b>Week:</b> %{{x}}<br><b>{year} Avg Expenditure:</b> Rs. %{{y:,.0f}}<extra></extra>'
                     ))
                 
                 fig_yoy.update_layout(
-                    title='Year-over-Year Month Comparison (Average Rs.)',
-                    xaxis_title="Month",
+                    title='Year-over-Year Week Comparison (Average Rs.)',
+                    xaxis_title="Week Number",
                     yaxis_title="Average Expenditure (Rs.)",
                     yaxis={'tickformat': ',.0f'},
                     showlegend=True
@@ -201,7 +200,7 @@ if uploaded_file is not None:
                 st.info("Insufficient data for year-over-year comparison")
                 
         else:
-            st.info("No monthly expenses data available")
+            st.info("No weekly expenses data available")
         
         # Yearly Expenditure Bar Graph
         st.subheader("📊 Yearly Expenditure Summary")
@@ -283,8 +282,18 @@ if uploaded_file is not None:
         # Monthly Expenditure Bar Graph
         st.subheader("📊 Monthly Expenditure Bar Chart")
         
-        if not monthly_expenses.empty:
-            fig_expenses = px.bar(monthly_expenses, 
+        # Create month-year column for monthly bar chart
+        df['Month_Year'] = df['Date'].dt.strftime('%Y-%m')
+        monthly_expenses_bar = df[df['Amount'] < 0].groupby('Month_Year').agg({
+            'Amount': 'sum'
+        }).reset_index()
+        
+        # Convert to positive values for the chart
+        monthly_expenses_bar['Expenditure'] = abs(monthly_expenses_bar['Amount'])
+        monthly_expenses_bar = monthly_expenses_bar.sort_values('Month_Year')
+        
+        if not monthly_expenses_bar.empty:
+            fig_expenses = px.bar(monthly_expenses_bar, 
                                 x='Month_Year', 
                                 y='Expenditure',
                                 title='Monthly Expenditure Bar Chart (Rs.)',
@@ -307,17 +316,17 @@ if uploaded_file is not None:
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                avg_monthly_expense = monthly_expenses['Expenditure'].mean()
+                avg_monthly_expense = monthly_expenses_bar['Expenditure'].mean()
                 st.metric("Average Monthly Spend", f"Rs. {avg_monthly_expense:,.2f}")
             
             with col2:
-                max_monthly_expense = monthly_expenses['Expenditure'].max()
-                max_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmax(), 'Month_Year']
+                max_monthly_expense = monthly_expenses_bar['Expenditure'].max()
+                max_month = monthly_expenses_bar.loc[monthly_expenses_bar['Expenditure'].idxmax(), 'Month_Year']
                 st.metric("Highest Spending Month", f"Rs. {max_monthly_expense:,.2f}", f"({max_month})")
             
             with col3:
-                min_monthly_expense = monthly_expenses['Expenditure'].min()
-                min_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmin(), 'Month_Year']
+                min_monthly_expense = monthly_expenses_bar['Expenditure'].min()
+                min_month = monthly_expenses_bar.loc[monthly_expenses_bar['Expenditure'].idxmin(), 'Month_Year']
                 st.metric("Lowest Spending Month", f"Rs. {min_monthly_expense:,.2f}", f"({min_month})")
         else:
             st.info("No expenditure data found for the selected period")
