@@ -1,0 +1,9 @@
+# Meezan Bank Statement Visualizer
+
+A simple Streamlit app to visualize Meezan Bank account statements.
+
+## Features
+- Upload CSV bank statements
+- View income vs expenses
+- See balance over time
+- Monthly transaction summaries
