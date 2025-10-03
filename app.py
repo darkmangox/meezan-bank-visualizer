@@ -17,6 +17,12 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         df['Date'] = pd.to_datetime(df['Date'])
         
+        # Auto-detect and mark transfers to Daniyal and Talha Ahmed as non-earnings
+        names_to_exclude = ['Daniyal', 'Talha Ahmed']
+        if 'Is_Transfer_Not_Earning' not in df.columns:
+            transfer_pattern = '|'.join([f'to {name}' for name in names_to_exclude])
+            df['Is_Transfer_Not_Earning'] = df['Description'].str.contains(transfer_pattern, case=False, na=False)
+        
         st.success(f"✅ Successfully loaded {len(df)} transactions")
         
         # Display summary metrics
@@ -26,15 +32,28 @@ if uploaded_file is not None:
             st.metric("Total Transactions", len(df))
         
         with col2:
-            total_income = df[df['Amount'] > 0]['Amount'].sum()
-            st.metric("Total Income", f"Rs. {total_income:,.2f}")
+            # Exclude transfers to Daniyal and Talha Ahmed from income calculation
+            if 'Is_Transfer_Not_Earning' in df.columns:
+                real_income = df[(df['Amount'] > 0) & (~df['Is_Transfer_Not_Earning'])]['Amount'].sum()
+                excluded_income = df[(df['Amount'] > 0) & (df['Is_Transfer_Not_Earning'])]['Amount'].sum()
+                st.metric("Total Income", f"Rs. {real_income:,.2f}")
+                if excluded_income > 0:
+                    st.caption(f"Excluded Rs. {excluded_income:,.2f} in transfers")
+            else:
+                total_income = df[df['Amount'] > 0]['Amount'].sum()
+                st.metric("Total Income", f"Rs. {total_income:,.2f}")
         
         with col3:
             total_expenses = abs(df[df['Amount'] < 0]['Amount'].sum())
             st.metric("Total Expenses", f"Rs. {total_expenses:,.2f}")
         
         with col4:
-            net_flow = df['Amount'].sum()
+            # Adjust net flow calculation to exclude those transfers
+            if 'Is_Transfer_Not_Earning' in df.columns:
+                real_income = df[(df['Amount'] > 0) & (~df['Is_Transfer_Not_Earning'])]['Amount'].sum()
+                net_flow = real_income - total_expenses
+            else:
+                net_flow = df['Amount'].sum()
             st.metric("Net Flow", f"Rs. {net_flow:,.2f}")
         
         # Balance over time chart - USING ACTUAL BALANCES
@@ -211,15 +230,28 @@ if uploaded_file is not None:
                 for pattern in patterns:
                     match = re.search(pattern, description, re.IGNORECASE)
                     if match:
-                        return match.group(1).strip()
+                        payee_name = match.group(1).strip()
+                        # Exclude Daniyal and Talha Ahmed from payee analysis
+                        if any(name.lower() in payee_name.lower() for name in names_to_exclude):
+                            return None
+                        return payee_name
                 
                 # If no pattern matches, return first few words
                 words = description.split()
                 if len(words) > 3:
-                    return ' '.join(words[:3]) + '...'
-                return description[:30] + '...' if len(description) > 30 else description
+                    payee_name = ' '.join(words[:3]) + '...'
+                else:
+                    payee_name = description[:30] + '...' if len(description) > 30 else description
+                
+                # Exclude Daniyal and Talha Ahmed from payee analysis
+                if any(name.lower() in payee_name.lower() for name in names_to_exclude):
+                    return None
+                return payee_name
             
             expense_df['Payee'] = expense_df['Description'].apply(extract_payee)
+            
+            # Remove None values (excluded payees)
+            expense_df = expense_df[expense_df['Payee'].notna()]
             
             # Group by payee and sum the amounts (convert to positive)
             payee_totals = expense_df.groupby('Payee').agg({
@@ -292,7 +324,11 @@ if uploaded_file is not None:
         # Monthly summary (income vs expenses)
         st.subheader("📈 Monthly Income vs Expenses")
         
-        monthly_income = df[df['Amount'] > 0].groupby('Month_Year')['Amount'].sum().reset_index()
+        # Calculate real income (excluding transfers) for each month
+        if 'Is_Transfer_Not_Earning' in df.columns:
+            monthly_income = df[(df['Amount'] > 0) & (~df['Is_Transfer_Not_Earning'])].groupby('Month_Year')['Amount'].sum().reset_index()
+        else:
+            monthly_income = df[df['Amount'] > 0].groupby('Month_Year')['Amount'].sum().reset_index()
         monthly_income.columns = ['Month_Year', 'Income']
         
         monthly_expenses_comparison = df[df['Amount'] < 0].groupby('Month_Year')['Amount'].sum().reset_index()
