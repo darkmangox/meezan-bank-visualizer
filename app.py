@@ -61,52 +61,52 @@ if uploaded_file is not None:
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
         
-        # Quarterly Expenses Summary with Trend Lines
-        st.subheader("📈 Quarterly Expenses Summary with Trends")
+        # Monthly Expenses Summary with Trend Lines
+        st.subheader("📈 Monthly Expenses Summary with Trends")
         
-        # Create quarter-year column
-        df['Quarter'] = df['Date'].dt.to_period('Q').astype(str)
+        # Create month-year column
+        df['Month_Year'] = df['Date'].dt.strftime('%Y-%m')
         df['Year'] = df['Date'].dt.year
         
-        # Calculate quarterly expenses (only negative amounts)
-        quarterly_expenses = df[df['Amount'] < 0].groupby('Quarter').agg({
+        # Calculate monthly expenses (only negative amounts)
+        monthly_expenses = df[df['Amount'] < 0].groupby('Month_Year').agg({
             'Amount': 'sum',
             'Description': 'count'
         }).reset_index()
         
         # Convert to positive values for the chart
-        quarterly_expenses['Expenditure'] = abs(quarterly_expenses['Amount'])
-        quarterly_expenses = quarterly_expenses.rename(columns={'Description': 'Transaction_Count'})
+        monthly_expenses['Expenditure'] = abs(monthly_expenses['Amount'])
+        monthly_expenses = monthly_expenses.rename(columns={'Description': 'Transaction_Count'})
         
-        # Extract year from quarter for coloring and analysis
-        quarterly_expenses['Year'] = quarterly_expenses['Quarter'].str.split('-').str[0]
-        quarterly_expenses = quarterly_expenses.sort_values('Quarter')
+        # Extract year from month for coloring and analysis
+        monthly_expenses['Year'] = monthly_expenses['Month_Year'].str.split('-').str[0]
+        monthly_expenses = monthly_expenses.sort_values('Month_Year')
         
-        if not quarterly_expenses.empty:
+        if not monthly_expenses.empty:
             # Create line chart with different colors for each year
-            fig_quarterly = px.line(quarterly_expenses, 
-                                  x='Quarter', 
-                                  y='Expenditure',
-                                  title='Quarterly Expenses Summary with Trends (Rs.)',
-                                  color='Year',
-                                  markers=True,
-                                  line_shape='linear')
+            fig_monthly = px.line(monthly_expenses, 
+                                x='Month_Year', 
+                                y='Expenditure',
+                                title='Monthly Expenses Summary with Trends (Rs.)',
+                                color='Year',
+                                markers=True,
+                                line_shape='linear')
             
             # Add solid white trend line that connects through the dots
-            quarterly_expenses_sorted = quarterly_expenses.sort_values('Quarter')
+            monthly_expenses_sorted = monthly_expenses.sort_values('Month_Year')
             
-            fig_quarterly.add_trace(go.Scatter(
-                x=quarterly_expenses_sorted['Quarter'],
-                y=quarterly_expenses_sorted['Expenditure'],
+            fig_monthly.add_trace(go.Scatter(
+                x=monthly_expenses_sorted['Month_Year'],
+                y=monthly_expenses_sorted['Expenditure'],
                 mode='lines+markers',
                 name='Overall Trend',
                 line=dict(color='white', width=4),
-                marker=dict(color='white', size=8, symbol='circle'),
-                hovertemplate='<b>Trend Line</b><br>Quarter: %{x}<br>Expenditure: Rs. %{y:,.0f}<extra></extra>'
+                marker=dict(color='white', size=6, symbol='circle'),
+                hovertemplate='<b>Trend Line</b><br>Month: %{x}<br>Expenditure: Rs. %{y:,.0f}<extra></extra>'
             ))
             
-            fig_quarterly.update_layout(
-                xaxis_title="Quarter",
+            fig_monthly.update_layout(
+                xaxis_title="Month",
                 yaxis_title="Total Expenditure (Rs.)",
                 xaxis={'tickangle': 45},
                 yaxis={
@@ -120,58 +120,62 @@ if uploaded_file is not None:
             )
             
             # Add value annotations on each point
-            fig_quarterly.update_traces(hovertemplate='<b>Quarter:</b> %{x}<br><b>Expenditure:</b> Rs. %{y:,.0f}<br><b>Year:</b> %{fullData.name}<extra></extra>')
+            fig_monthly.update_traces(hovertemplate='<b>Month:</b> %{x}<br><b>Expenditure:</b> Rs. %{y:,.0f}<br><b>Year:</b> %{fullData.name}<extra></extra>')
             
-            st.plotly_chart(fig_quarterly, use_container_width=True)
+            st.plotly_chart(fig_monthly, use_container_width=True)
             
-            # Quarterly expenses summary
-            st.subheader("📋 Quarterly Expenses Summary")
-            quarterly_table = quarterly_expenses[['Quarter', 'Expenditure', 'Transaction_Count', 'Year']].copy()
-            quarterly_table['Expenditure'] = quarterly_table['Expenditure'].round(2)
-            quarterly_table['Average per Transaction'] = (quarterly_table['Expenditure'] / quarterly_table['Transaction_Count']).round(2)
-            quarterly_table = quarterly_table.rename(columns={
-                'Quarter': 'Quarter',
+            # Monthly expenses summary
+            st.subheader("📋 Monthly Expenses Summary")
+            monthly_table = monthly_expenses[['Month_Year', 'Expenditure', 'Transaction_Count', 'Year']].copy()
+            monthly_table['Expenditure'] = monthly_table['Expenditure'].round(2)
+            monthly_table['Average per Transaction'] = (monthly_table['Expenditure'] / monthly_table['Transaction_Count']).round(2)
+            monthly_table = monthly_table.rename(columns={
+                'Month_Year': 'Month',
                 'Expenditure': 'Total Expenditure (Rs.)',
                 'Transaction_Count': 'Number of Transactions',
                 'Year': 'Year'
             })
-            st.dataframe(quarterly_table, use_container_width=True)
+            st.dataframe(monthly_table, use_container_width=True)
             
-            # Quarterly statistics
+            # Monthly statistics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                current_quarter_expense = quarterly_expenses['Expenditure'].iloc[-1]
-                st.metric("Current Quarter", f"Rs. {current_quarter_expense:,.2f}")
+                current_month_expense = monthly_expenses['Expenditure'].iloc[-1]
+                st.metric("Current Month", f"Rs. {current_month_expense:,.2f}")
             
             with col2:
-                avg_quarterly_expense = quarterly_expenses['Expenditure'].mean()
-                st.metric("Average per Quarter", f"Rs. {avg_quarterly_expense:,.2f}")
+                avg_monthly_expense = monthly_expenses['Expenditure'].mean()
+                st.metric("Average per Month", f"Rs. {avg_monthly_expense:,.2f}")
             
             with col3:
-                highest_quarter_expense = quarterly_expenses['Expenditure'].max()
-                highest_quarter = quarterly_expenses.loc[quarterly_expenses['Expenditure'].idxmax(), 'Quarter']
-                st.metric("Highest Quarter", f"Rs. {highest_quarter_expense:,.2f}", f"({highest_quarter})")
+                highest_month_expense = monthly_expenses['Expenditure'].max()
+                highest_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmax(), 'Month_Year']
+                st.metric("Highest Month", f"Rs. {highest_month_expense:,.2f}", f"({highest_month})")
             
             with col4:
-                lowest_quarter_expense = quarterly_expenses['Expenditure'].min()
-                lowest_quarter = quarterly_expenses.loc[quarterly_expenses['Expenditure'].idxmin(), 'Quarter']
-                st.metric("Lowest Quarter", f"Rs. {lowest_quarter_expense:,.2f}", f"({lowest_quarter})")
+                lowest_month_expense = monthly_expenses['Expenditure'].min()
+                lowest_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmin(), 'Month_Year']
+                st.metric("Lowest Month", f"Rs. {lowest_month_expense:,.2f}", f"({lowest_month})")
                 
-            # Year-over-Year comparison for same quarters
-            st.subheader("📊 Year-over-Year Quarter Comparison")
+            # Year-over-Year comparison for same months
+            st.subheader("📊 Year-over-Year Month Comparison")
             
-            # Extract quarter number (Q1, Q2, Q3, Q4)
-            quarterly_expenses['Quarter_Num'] = quarterly_expenses['Quarter'].str.split('-').str[1]
+            # Extract month name for better comparison
+            monthly_expenses['Month_Name'] = pd.to_datetime(monthly_expenses['Month_Year'] + '-01').dt.strftime('%b')
             
             # Pivot table for year-over-year comparison
-            yoy_comparison = quarterly_expenses.pivot_table(
-                index='Quarter_Num', 
+            yoy_comparison = monthly_expenses.pivot_table(
+                index='Month_Name', 
                 columns='Year', 
                 values='Expenditure', 
-                aggfunc='sum'
+                aggfunc='mean'
             ).fillna(0)
             
-            if not yoy_comparison.empty:
+            # Order months properly
+            month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            yoy_comparison = yoy_comparison.reindex(month_order, fill_value=0)
+            
+            if not yoy_comparison.empty and len(yoy_comparison.columns) > 1:
                 fig_yoy = go.Figure()
                 
                 # Add a line for each year
@@ -181,13 +185,13 @@ if uploaded_file is not None:
                         y=yoy_comparison[year],
                         mode='lines+markers',
                         name=str(year),
-                        hovertemplate=f'<b>Quarter:</b> %{{x}}<br><b>{year} Expenditure:</b> Rs. %{{y:,.0f}}<extra></extra>'
+                        hovertemplate=f'<b>Month:</b> %{{x}}<br><b>{year} Avg Expenditure:</b> Rs. %{{y:,.0f}}<extra></extra>'
                     ))
                 
                 fig_yoy.update_layout(
-                    title='Year-over-Year Quarter Comparison (Rs.)',
-                    xaxis_title="Quarter",
-                    yaxis_title="Expenditure (Rs.)",
+                    title='Year-over-Year Month Comparison (Average Rs.)',
+                    xaxis_title="Month",
+                    yaxis_title="Average Expenditure (Rs.)",
                     yaxis={'tickformat': ',.0f'},
                     showlegend=True
                 )
@@ -197,7 +201,7 @@ if uploaded_file is not None:
                 st.info("Insufficient data for year-over-year comparison")
                 
         else:
-            st.info("No quarterly expenses data available")
+            st.info("No monthly expenses data available")
         
         # Yearly Expenditure Bar Graph
         st.subheader("📊 Yearly Expenditure Summary")
@@ -277,25 +281,13 @@ if uploaded_file is not None:
             st.info("No yearly expenditure data found for the selected period")
         
         # Monthly Expenditure Bar Graph
-        st.subheader("📊 Monthly Expenditure")
-        
-        # Create month-year column
-        df['Month_Year'] = df['Date'].dt.strftime('%Y-%m')
-        
-        # Calculate monthly expenses (only negative amounts)
-        monthly_expenses = df[df['Amount'] < 0].groupby('Month_Year').agg({
-            'Amount': 'sum'
-        }).reset_index()
-        
-        # Convert to positive values for the chart
-        monthly_expenses['Expenditure'] = abs(monthly_expenses['Amount'])
-        monthly_expenses = monthly_expenses.sort_values('Month_Year')
+        st.subheader("📊 Monthly Expenditure Bar Chart")
         
         if not monthly_expenses.empty:
             fig_expenses = px.bar(monthly_expenses, 
                                 x='Month_Year', 
                                 y='Expenditure',
-                                title='Monthly Expenditure (Rs.)',
+                                title='Monthly Expenditure Bar Chart (Rs.)',
                                 color='Expenditure',
                                 color_continuous_scale='reds')
             
