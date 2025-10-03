@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import re
 
 st.set_page_config(page_title="Meezan Bank Visualizer", layout="wide")
 st.title("🏦 Meezan Bank Statement Visualizer")
@@ -58,6 +59,78 @@ if uploaded_file is not None:
                          title='Calculated Balance Over Time')
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
+        
+        # Top 10 Payees Bar Chart
+        st.subheader("👥 Top 10 Payees")
+        
+        # Get only expense transactions
+        expense_df = df[df['Amount'] < 0].copy()
+        
+        if not expense_df.empty:
+            # Clean description to extract payee names
+            def extract_payee(description):
+                # Common patterns in Meezan Bank descriptions
+                patterns = [
+                    r'Money Transferred to\s+([^-]+)',  # "Money Transferred to NAME -"
+                    r'to\s+([^-]+)',                   # "to NAME -"
+                    r'Paid to\s+([^-]+)',              # "Paid to NAME -"
+                    r'Transfer to\s+([^-]+)',          # "Transfer to NAME -"
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, description, re.IGNORECASE)
+                    if match:
+                        return match.group(1).strip()
+                
+                # If no pattern matches, return first few words
+                words = description.split()
+                if len(words) > 3:
+                    return ' '.join(words[:3]) + '...'
+                return description[:30] + '...' if len(description) > 30 else description
+            
+            expense_df['Payee'] = expense_df['Description'].apply(extract_payee)
+            
+            # Group by payee and sum the amounts (convert to positive)
+            payee_totals = expense_df.groupby('Payee').agg({
+                'Amount': 'sum',
+                'Description': 'count'
+            }).reset_index()
+            
+            payee_totals['Amount'] = abs(payee_totals['Amount'])
+            payee_totals = payee_totals.rename(columns={'Description': 'Transaction_Count'})
+            
+            # Get top 10 payees
+            top_10_payees = payee_totals.nlargest(10, 'Amount')
+            
+            if not top_10_payees.empty:
+                # Create bar chart
+                fig_payees = px.bar(top_10_payees, 
+                                  x='Payee', 
+                                  y='Amount',
+                                  title='Top 10 Payees - Total Amount Paid (Rs.)',
+                                  color='Amount',
+                                  color_continuous_scale='purples',
+                                  hover_data=['Transaction_Count'])
+                
+                fig_payees.update_layout(xaxis_title="Payee",
+                                       yaxis_title="Total Amount Paid (Rs.)",
+                                       xaxis={'tickangle': 45, 'categoryorder': 'total descending'})
+                st.plotly_chart(fig_payees, use_container_width=True)
+                
+                # Show payee summary table
+                st.subheader("📋 Payee Summary")
+                summary_table = top_10_payees[['Payee', 'Amount', 'Transaction_Count']].copy()
+                summary_table['Amount'] = summary_table['Amount'].round(2)
+                summary_table = summary_table.rename(columns={
+                    'Payee': 'Payee Name',
+                    'Amount': 'Total Paid (Rs.)',
+                    'Transaction_Count': 'Number of Transactions'
+                })
+                st.dataframe(summary_table, use_container_width=True)
+            else:
+                st.info("No payee data available for analysis")
+        else:
+            st.info("No expense transactions found for payee analysis")
         
         # Monthly Expenditure Bar Graph
         st.subheader("📊 Monthly Expenditure")
