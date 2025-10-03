@@ -60,6 +60,85 @@ if uploaded_file is not None:
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
         
+        # Yearly Balance Trend Line (Quarterly Basis)
+        st.subheader("📈 Yearly Balance Trend - Quarterly View")
+        
+        if 'Available Balance' in df.columns:
+            # Create quarter-year column
+            df['Quarter'] = df['Date'].dt.to_period('Q').astype(str)
+            df['Year'] = df['Date'].dt.year
+            
+            # Get the last balance for each quarter (end of quarter balance)
+            quarterly_balances = df.sort_values('Date').groupby('Quarter').agg({
+                'Available Balance': 'last',
+                'Date': 'max'
+            }).reset_index()
+            
+            # Extract year from quarter for coloring
+            quarterly_balances['Year'] = quarterly_balances['Quarter'].str.split('-').str[0]
+            
+            if not quarterly_balances.empty:
+                # Create line chart with different colors for each year
+                fig_quarterly = px.line(quarterly_balances, 
+                                      x='Quarter', 
+                                      y='Available Balance',
+                                      title='Yearly Balance Trend - Quarterly Balances (Rs.)',
+                                      color='Year',
+                                      markers=True,
+                                      line_shape='linear')
+                
+                fig_quarterly.update_layout(
+                    xaxis_title="Quarter",
+                    yaxis_title="End of Quarter Balance (Rs.)",
+                    xaxis={'tickangle': 45},
+                    yaxis={
+                        'tickformat': ',.0f',
+                        'dtick': 100000  # 100k increments
+                    },
+                    showlegend=True
+                )
+                
+                # Add value annotations on each point
+                fig_quarterly.update_traces(textposition='top center', 
+                                          hovertemplate='<b>Quarter:</b> %{x}<br><b>Balance:</b> Rs. %{y:,.0f}<extra></extra>')
+                
+                st.plotly_chart(fig_quarterly, use_container_width=True)
+                
+                # Quarterly balance summary
+                st.subheader("📋 Quarterly Balance Summary")
+                quarterly_table = quarterly_balances[['Quarter', 'Available Balance', 'Date']].copy()
+                quarterly_table['Available Balance'] = quarterly_table['Available Balance'].round(2)
+                quarterly_table = quarterly_table.rename(columns={
+                    'Quarter': 'Quarter',
+                    'Available Balance': 'End of Quarter Balance (Rs.)',
+                    'Date': 'As of Date'
+                })
+                st.dataframe(quarterly_table, use_container_width=True)
+                
+                # Quarterly statistics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    current_quarter_balance = quarterly_balances['Available Balance'].iloc[-1]
+                    st.metric("Current Quarter Balance", f"Rs. {current_quarter_balance:,.2f}")
+                
+                with col2:
+                    avg_quarterly_balance = quarterly_balances['Available Balance'].mean()
+                    st.metric("Average Quarterly Balance", f"Rs. {avg_quarterly_balance:,.2f}")
+                
+                with col3:
+                    highest_quarter_balance = quarterly_balances['Available Balance'].max()
+                    highest_quarter = quarterly_balances.loc[quarterly_balances['Available Balance'].idxmax(), 'Quarter']
+                    st.metric("Highest Quarter", f"Rs. {highest_quarter_balance:,.2f}", f"({highest_quarter})")
+                
+                with col4:
+                    lowest_quarter_balance = quarterly_balances['Available Balance'].min()
+                    lowest_quarter = quarterly_balances.loc[quarterly_balances['Available Balance'].idxmin(), 'Quarter']
+                    st.metric("Lowest Quarter", f"Rs. {lowest_quarter_balance:,.2f}", f"({lowest_quarter})")
+            else:
+                st.info("No quarterly balance data available")
+        else:
+            st.info("Quarterly balance trend requires 'Available Balance' column in your data")
+        
         # Yearly Expenditure Bar Graph
         st.subheader("📊 Yearly Expenditure Summary")
         
