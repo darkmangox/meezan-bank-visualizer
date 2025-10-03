@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import re
-import numpy as np  # Added for trend line calculation
+import numpy as np
 
 st.set_page_config(page_title="Meezan Bank Visualizer", layout="wide")
 st.title("🏦 Meezan Bank Statement Visualizer")
@@ -87,23 +87,22 @@ if uploaded_file is not None:
             fig_quarterly = px.line(quarterly_expenses, 
                                   x='Quarter', 
                                   y='Expenditure',
-                                  title='Quarterly Expenses Summary with Trend Lines (Rs.)',
+                                  title='Quarterly Expenses Summary with Trends (Rs.)',
                                   color='Year',
                                   markers=True,
                                   line_shape='linear')
             
-            # Add trend line for overall expenses
+            # Add solid white trend line that connects through the dots
             quarterly_expenses_sorted = quarterly_expenses.sort_values('Quarter')
-            z = np.polyfit(range(len(quarterly_expenses_sorted)), quarterly_expenses_sorted['Expenditure'], 1)
-            p = np.poly1d(z)
             
             fig_quarterly.add_trace(go.Scatter(
                 x=quarterly_expenses_sorted['Quarter'],
-                y=p(range(len(quarterly_expenses_sorted))),
-                mode='lines',
+                y=quarterly_expenses_sorted['Expenditure'],
+                mode='lines+markers',
                 name='Overall Trend',
-                line=dict(color='black', dash='dash', width=3),
-                hovertemplate='<b>Trend Line</b><br>Quarter: %{x}<br>Trend Value: Rs. %{y:,.0f}<extra></extra>'
+                line=dict(color='white', width=4),
+                marker=dict(color='white', size=8, symbol='circle'),
+                hovertemplate='<b>Trend Line</b><br>Quarter: %{x}<br>Expenditure: Rs. %{y:,.0f}<extra></extra>'
             ))
             
             fig_quarterly.update_layout(
@@ -115,7 +114,9 @@ if uploaded_file is not None:
                     'dtick': 100000  # 100k increments
                 },
                 showlegend=True,
-                height=500
+                height=500,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)'
             )
             
             # Add value annotations on each point
