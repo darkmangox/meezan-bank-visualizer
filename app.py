@@ -60,8 +60,8 @@ if uploaded_file is not None:
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
         
-        # Top 10 Payees Bar Chart
-        st.subheader("👥 Top 10 Payees")
+        # Top 20 Payees Bar Chart
+        st.subheader("👥 Top 20 Payees")
         
         # Get only expense transactions
         expense_df = df[df['Amount'] < 0].copy()
@@ -99,15 +99,15 @@ if uploaded_file is not None:
             payee_totals['Amount'] = abs(payee_totals['Amount'])
             payee_totals = payee_totals.rename(columns={'Description': 'Transaction_Count'})
             
-            # Get top 10 payees
-            top_10_payees = payee_totals.nlargest(10, 'Amount')
+            # Get top 20 payees
+            top_20_payees = payee_totals.nlargest(20, 'Amount')
             
-            if not top_10_payees.empty:
+            if not top_20_payees.empty:
                 # Create bar chart with fixed width and 100k increments
-                fig_payees = px.bar(top_10_payees, 
+                fig_payees = px.bar(top_20_payees, 
                                   x='Payee', 
                                   y='Amount',
-                                  title='Top 10 Payees - Total Amount Paid (Rs.)',
+                                  title='Top 20 Payees - Total Amount Paid (Rs.)',
                                   color='Amount',
                                   color_continuous_scale='purples',
                                   hover_data=['Transaction_Count'])
@@ -122,8 +122,8 @@ if uploaded_file is not None:
                         'tick0': 0,
                         'tickmode': 'linear'
                     },
-                    height=500,  # Fixed height
-                    width=800,   # Fixed width (less wide)
+                    height=600,  # Slightly taller for 20 payees
+                    width=900,   # Slightly wider for 20 payees
                     showlegend=False
                 )
                 
@@ -132,7 +132,7 @@ if uploaded_file is not None:
                 
                 # Show payee summary table
                 st.subheader("📋 Payee Summary")
-                summary_table = top_10_payees[['Payee', 'Amount', 'Transaction_Count']].copy()
+                summary_table = top_20_payees[['Payee', 'Amount', 'Transaction_Count']].copy()
                 summary_table['Amount'] = summary_table['Amount'].round(2)
                 summary_table = summary_table.rename(columns={
                     'Payee': 'Payee Name',
@@ -140,6 +140,19 @@ if uploaded_file is not None:
                     'Transaction_Count': 'Number of Transactions'
                 })
                 st.dataframe(summary_table, use_container_width=True)
+                
+                # Show some stats
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    total_paid = top_20_payees['Amount'].sum()
+                    st.metric("Total to Top 20", f"Rs. {total_paid:,.2f}")
+                with col2:
+                    avg_per_payee = top_20_payees['Amount'].mean()
+                    st.metric("Average per Payee", f"Rs. {avg_per_payee:,.2f}")
+                with col3:
+                    total_transactions = top_20_payees['Transaction_Count'].sum()
+                    st.metric("Total Transactions", total_transactions)
+                    
             else:
                 st.info("No payee data available for analysis")
         else:
