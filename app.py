@@ -59,25 +59,81 @@ if uploaded_file is not None:
             st.plotly_chart(fig, use_container_width=True)
             st.info("Using calculated balance (no Available Balance column found)")
         
-        # Monthly summary
-        st.subheader("📊 Monthly Summary")
-        df['Month'] = df['Date'].dt.strftime('%Y-%m')
-        monthly_data = df.groupby('Month').agg({
-            'Amount': ['sum', 'count']
-        }).round(2)
-        monthly_data.columns = ['Net Amount', 'Transaction Count']
-        st.dataframe(monthly_data, use_container_width=True)
+        # Monthly Expenditure Bar Graph
+        st.subheader("📊 Monthly Expenditure")
         
-        # Income vs Expenses pie chart
-        st.subheader("🍕 Income vs Expenses")
-        income = df[df['Amount'] > 0]['Amount'].sum()
-        expenses = abs(df[df['Amount'] < 0]['Amount'].sum())
+        # Create month-year column
+        df['Month_Year'] = df['Date'].dt.strftime('%Y-%m')
         
-        if income + expenses > 0:  # Only show if we have data
-            fig2 = px.pie(values=[income, expenses], 
-                         names=['Income', 'Expenses'],
-                         title='Income vs Expenses Distribution')
-            st.plotly_chart(fig2, use_container_width=True)
+        # Calculate monthly expenses (only negative amounts)
+        monthly_expenses = df[df['Amount'] < 0].groupby('Month_Year').agg({
+            'Amount': 'sum'
+        }).reset_index()
+        
+        # Convert to positive values for the chart
+        monthly_expenses['Expenditure'] = abs(monthly_expenses['Amount'])
+        monthly_expenses = monthly_expenses.sort_values('Month_Year')
+        
+        if not monthly_expenses.empty:
+            fig_expenses = px.bar(monthly_expenses, 
+                                x='Month_Year', 
+                                y='Expenditure',
+                                title='Monthly Expenditure (₹)',
+                                color='Expenditure',
+                                color_continuous_scale='reds')
+            
+            fig_expenses.update_layout(xaxis_title="Month", 
+                                     yaxis_title="Expenditure (₹)",
+                                     xaxis={'tickangle': 45})
+            st.plotly_chart(fig_expenses, use_container_width=True)
+            
+            # Show monthly expenditure summary
+            st.subheader("💸 Monthly Expenditure Summary")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                avg_monthly_expense = monthly_expenses['Expenditure'].mean()
+                st.metric("Average Monthly Spend", f"₹{avg_monthly_expense:,.2f}")
+            
+            with col2:
+                max_monthly_expense = monthly_expenses['Expenditure'].max()
+                max_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmax(), 'Month_Year']
+                st.metric("Highest Spending Month", f"₹{max_monthly_expense:,.2f}", f"({max_month})")
+            
+            with col3:
+                min_monthly_expense = monthly_expenses['Expenditure'].min()
+                min_month = monthly_expenses.loc[monthly_expenses['Expenditure'].idxmin(), 'Month_Year']
+                st.metric("Lowest Spending Month", f"₹{min_monthly_expense:,.2f}", f"({min_month})")
+        else:
+            st.info("No expenditure data found for the selected period")
+        
+        # Monthly summary (income vs expenses)
+        st.subheader("📈 Monthly Income vs Expenses")
+        
+        monthly_summary = df.groupby('Month_Year').agg({
+            'Amount': lambda x: x[x > 0].sum(),  # Income
+            'Amount': lambda x: abs(x[x < 0].sum())  # Expenses
+        }).reset_index()
+        
+        monthly_summary.columns = ['Month_Year', 'Income', 'Expenses']
+        monthly_summary = monthly_summary.sort_values('Month_Year')
+        
+        if not monthly_summary.empty:
+            fig_comparison = go.Figure()
+            fig_comparison.add_trace(go.Bar(name='Income', 
+                                          x=monthly_summary['Month_Year'], 
+                                          y=monthly_summary['Income'],
+                                          marker_color='green'))
+            fig_comparison.add_trace(go.Bar(name='Expenses', 
+                                          x=monthly_summary['Month_Year'], 
+                                          y=monthly_summary['Expenses'],
+                                          marker_color='red'))
+            fig_comparison.update_layout(barmode='group',
+                                       title='Monthly Income vs Expenses',
+                                       xaxis_title="Month",
+                                       yaxis_title="Amount (₹)",
+                                       xaxis={'tickangle': 45})
+            st.plotly_chart(fig_comparison, use_container_width=True)
         
         # Transaction history
         st.subheader("📋 Recent Transactions")
