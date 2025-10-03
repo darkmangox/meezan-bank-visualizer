@@ -103,7 +103,7 @@ if uploaded_file is not None:
             top_10_payees = payee_totals.nlargest(10, 'Amount')
             
             if not top_10_payees.empty:
-                # Create bar chart
+                # Create bar chart with fixed width and 100k increments
                 fig_payees = px.bar(top_10_payees, 
                                   x='Payee', 
                                   y='Amount',
@@ -112,10 +112,23 @@ if uploaded_file is not None:
                                   color_continuous_scale='purples',
                                   hover_data=['Transaction_Count'])
                 
-                fig_payees.update_layout(xaxis_title="Payee",
-                                       yaxis_title="Total Amount Paid (Rs.)",
-                                       xaxis={'tickangle': 45, 'categoryorder': 'total descending'})
-                st.plotly_chart(fig_payees, use_container_width=True)
+                fig_payees.update_layout(
+                    xaxis_title="Payee",
+                    yaxis_title="Total Amount Paid (Rs.)",
+                    xaxis={'tickangle': 45, 'categoryorder': 'total descending'},
+                    yaxis={
+                        'tickformat': ',.0f',
+                        'dtick': 100000,  # 100k increments
+                        'tick0': 0,
+                        'tickmode': 'linear'
+                    },
+                    height=500,  # Fixed height
+                    width=800,   # Fixed width (less wide)
+                    showlegend=False
+                )
+                
+                # Display chart with controlled width
+                st.plotly_chart(fig_payees, use_container_width=False)
                 
                 # Show payee summary table
                 st.subheader("📋 Payee Summary")
@@ -155,9 +168,15 @@ if uploaded_file is not None:
                                 color='Expenditure',
                                 color_continuous_scale='reds')
             
-            fig_expenses.update_layout(xaxis_title="Month", 
-                                     yaxis_title="Expenditure (Rs.)",
-                                     xaxis={'tickangle': 45})
+            fig_expenses.update_layout(
+                xaxis_title="Month", 
+                yaxis_title="Expenditure (Rs.)",
+                xaxis={'tickangle': 45},
+                yaxis={
+                    'tickformat': ',.0f',
+                    'dtick': 100000  # 100k increments for consistency
+                }
+            )
             st.plotly_chart(fig_expenses, use_container_width=True)
             
             # Show monthly expenditure summary
@@ -203,11 +222,17 @@ if uploaded_file is not None:
                                           x=monthly_summary['Month_Year'], 
                                           y=monthly_summary['Expenses'],
                                           marker_color='red'))
-            fig_comparison.update_layout(barmode='group',
-                                       title='Monthly Income vs Expenses (Rs.)',
-                                       xaxis_title="Month",
-                                       yaxis_title="Amount (Rs.)",
-                                       xaxis={'tickangle': 45})
+            fig_comparison.update_layout(
+                barmode='group',
+                title='Monthly Income vs Expenses (Rs.)',
+                xaxis_title="Month",
+                yaxis_title="Amount (Rs.)",
+                xaxis={'tickangle': 45},
+                yaxis={
+                    'tickformat': ',.0f',
+                    'dtick': 100000  # 100k increments
+                }
+            )
             st.plotly_chart(fig_comparison, use_container_width=True)
         
         # Transaction history
